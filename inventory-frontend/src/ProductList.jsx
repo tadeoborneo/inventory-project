@@ -1,0 +1,161 @@
+import { useEffect, useState } from 'react';
+import axios from 'axios';
+import { toast } from 'sonner';
+import InventorySummary from './components/InventorySummary';
+import AddProductForm from './components/AddProductForm';
+import ProductCard from './components/ProductCard';
+import StockChart from './components/StockChart';
+
+const ProductList = () => {
+    const [products, setProducts] = useState([]);
+    const [selectedPrediction, setSelectedPrediction] = useState(null);
+    const [quantities, setQuantities] = useState({});
+    const [newProduct, setNewProduct] = useState({
+        name: '',
+        stock: 0,
+        price: 0,
+        lead_time_days: 5
+    });
+
+    useEffect(() => {
+        axios.get('http://localhost:8000/products')
+            .then(response => setProducts(response.data))
+            .catch(error => console.error("Error al traer productos:", error));
+    }, []);
+
+    const handleDeleteProduct = async (productId) => {
+        const confirmDelete  = window.confirm("Are you sure you want to delete this product? This action will delete all associated sales records and cannot be undone.");
+
+        if (!confirmDelete) return;
+
+        try {
+            await axios.delete(`http://localhost:8000/products/${productId}`);
+            setProducts(products.filter(p => p.id !== productId))
+            toast.success("Product and sale history deleted succesfully")
+        } catch (error) {
+            toast.error("Error deleting product: ");
+        }
+    }
+
+    const handleAddProduct = async (e) => {
+        e.preventDefault();
+
+        const productData = {
+            ...newProduct,
+            stock: Number(newProduct.stock),
+            price: Number(newProduct.price),
+            lead_time_days: Number(newProduct.lead_time_days)
+        }
+
+        try {
+            const response = await axios.post('http://localhost:8000/products', productData);
+            setProducts([...products, response.data]);
+
+            setNewProduct({ name: '', stock: 0, price: 0, lead_time_days: 5 });
+            toast.success("Product added successfully!");
+        } catch (error) {
+            let msg = "Error connecting to the server.";
+            if (error.response?.status === 422) {
+                const detail = error.response.data.detail;
+                msg = Array.isArray(detail) ? `${detail[0].loc[1]} : ${detail[0].msg}` : detail;
+            } else if (error.response?.data?.detail) {
+                msg = error.response.data.detail;
+            }
+            toast.error(msg);
+        }
+
+    }
+
+    const handleSellProduct = async (productId, quantity) => {
+        if (quantity <= 0) {
+            toast.error("Please enter a valid quantity.");
+            return;
+        }
+
+        try {
+            const response = await axios.post('http://localhost:8000/sales', {
+                product_id: productId,
+                quantity: Number(quantity)
+            });
+
+            setProducts(prevProducts =>
+                prevProducts.map(p =>
+                    p.id === productId
+                        ? { ...p, stock: p.stock - response.data.quantity }
+                        : p
+                )
+            )
+            toast.success("Product sold successfully!");
+        } catch (error) {
+            console.error("Error selling product:", error);
+            toast.error(error.response?.data?.detail || "Error connecting to the server.");
+        }
+    }
+
+    const handleGetPrediction = async (productId) => {
+        try {
+            const response = await axios.get(`http://localhost:8000/predict/${productId}`)
+            setSelectedPrediction(response.data);
+        } catch (error) {
+            console.error("Error fetching prediction:", error);
+            toast.success(error.response?.data?.detail || "Insufficient data for prediction.");
+        }
+    }
+
+    return (
+        <div className="p-8 bg-gray-50 min-h-screen">
+            <h1 className="text-3xl font-black mb-8">My Smart Inventory</h1>
+
+            <AddProductForm
+                newProduct={newProduct}
+                setNewProduct={setNewProduct}
+                onSubmit={handleAddProduct}
+            />
+
+            <InventorySummary
+                totalProducts={products.length}
+                lowStockCount={products.filter(p => p.stock <= p.lead_time_days).length}
+            />
+
+            {products.length > 0 && <StockChart data={products} />}
+
+            {selectedPrediction && (
+                <div className="bg-blue-50 border-l-4 border-blue-500 p-6 rounded-xl mb-8 shadow-sm">
+                    <div className="flex justify-between items-start">
+                        <h3 className="text-xl font-bold text-blue-800">Smart analisis</h3>
+                        <button onClick={() => setSelectedPrediction(null)} className="text-blue-500 font-bold">X</button>
+                    </div>
+                    <p className="mt-2 text-blue-700">
+                        {selectedPrediction.status_message}
+                    </p>
+                    <div className="grid grid-cols-2 gap-4 mt-4">
+                        <div className="bg-white p-3 rounded-lg shadow-inner">
+                            <p className="text-xs text-gray-500 font-bold uppercase">Day Average Sales</p>
+                            <p className="text-lg font-black">{selectedPrediction.avg_daily_sales}</p>
+                        </div>
+                        <div className="bg-white p-3 rounded-lg shadow-inner">
+                            <p className="text-xs text-gray-500 font-bold uppercase">Days left until stockout</p>
+                            <p className="text-lg font-black">{selectedPrediction.days_until_stockout === 9223372036854775807 ? '∞' : selectedPrediction.days_until_stockout}</p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {products.map(product => (
+                    <ProductCard
+                        key={product.id}
+                        product={product}
+                        quantity={quantities[product.id]}
+                        setQuantity={(val) => setQuantities({ ...quantities, [product.id]: val })}
+                        onSell={() => handleSellProduct(product.id, quantities[product.id])}
+                        onAnalyze={() => handleGetPrediction(product.id)}
+                        onDelete={()=> handleDeleteProduct(product.id)}
+                    />
+                ))}
+            </div>
+        </div>
+    );
+};
+
+export default ProductList;
