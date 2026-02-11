@@ -1,8 +1,10 @@
-const ProductCard = ({ product, onSell, onAnalyze, quantity, setQuantity, onDelete }) => {
+const ProductCard = ({ product, onSell, onAnalyze, quantity, setQuantity, onDelete, onEdit }) => {
 
     const isInvalid = !quantity || quantity <= 0 || quantity > product.stock;
 
     return (
+
+        
 
         <div className="relative bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow">
             <button
@@ -11,6 +13,10 @@ const ProductCard = ({ product, onSell, onAnalyze, quantity, setQuantity, onDele
                 >
                     ✕
                 </button>
+                <div className="absolute top-2 right-2 flex gap-2">
+                <button onClick={onEdit} className="text-gray-400 hover:text-blue-500 transition-colors">✎</button>
+                <button onClick={onDelete} className="text-gray-400 hover:text-red-500 transition-colors">✕</button>
+            </div>
             <h2 className="font-bold text-xl text-gray-700">{product.name}</h2>
             <div className="mt-2 flex justify-between items-center text-sm">
                 <span className="text-gray-500">Stock: {product.stock} un.</span>
@@ -33,6 +39,8 @@ const ProductCard = ({ product, onSell, onAnalyze, quantity, setQuantity, onDele
                 
 
             </div>
+
+            
         </div>
     );
 };

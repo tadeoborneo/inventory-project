@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
-import InventorySummary from './components/InventorySummary';
-import AddProductForm from './components/AddProductForm';
-import ProductCard from './components/ProductCard';
-import StockChart from './components/StockChart';
-
+import InventorySummary from '../components/InventorySummary';
+import AddProductForm from '../components/AddProductForm';
+import ProductCard from '../components/ProductCard';
+import StockChart from '../components/StockChart';
 const ProductList = () => {
     const [products, setProducts] = useState([]);
     const [selectedPrediction, setSelectedPrediction] = useState(null);
     const [quantities, setQuantities] = useState({});
+    const [searchTerm, setSearchTerm] = useState('');
+    const [editingProduct, setEditingProduct] = useState(null);
     const [newProduct, setNewProduct] = useState({
         name: '',
         stock: 0,
@@ -17,11 +18,53 @@ const ProductList = () => {
         lead_time_days: 5
     });
 
+    const filteredProducts = products.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
+
     useEffect(() => {
         axios.get('http://localhost:8000/products')
             .then(response => setProducts(response.data))
             .catch(error => console.error("Error al traer productos:", error));
     }, []);
+
+    const handleEditClick = (product) => {
+        setEditingProduct(product.id);
+        setNewProduct({
+            name: product.name,
+            stock: product.stock, 
+            price: product.price,
+            lead_time_days: product.lead_time_days
+        });
+        window.scrollTo({ top: 0, behavior: 'smooth'})
+    }
+
+    const handleSaveProduct = async (e) => {
+        e.preventDefault();
+        const productData = {
+            ...newProduct,
+            stock: Number(newProduct.stock),
+            price: Number(newProduct.price),
+            lead_time_days: Number(newProduct.lead_time_days)
+        };
+
+        try {
+            if (editingProduct) {
+                
+                const response = await axios.put(`http://localhost:8000/products/${editingProduct}`, productData);
+                setProducts(products.map(p => p.id === editingProduct ? response.data : p));
+                toast.success("Product updated successfully");
+            } else {
+                
+                const response = await axios.post('http://localhost:8000/products', productData);
+                setProducts([...products, response.data]);
+                toast.success("Product added!");
+            }
+           
+            setNewProduct({ name: '', stock: 0, price: 0, lead_time_days: 5 });
+            setEditingProduct(null);
+        } catch (error) {
+            toast.error("Error updating product");
+        }
+    };
 
     const handleDeleteProduct = async (productId) => {
         const confirmDelete  = window.confirm("Are you sure you want to delete this product? This action will delete all associated sales records and cannot be undone.");
@@ -105,19 +148,22 @@ const ProductList = () => {
     return (
         <div className="p-8 bg-gray-50 min-h-screen">
             <h1 className="text-3xl font-black mb-8">My Smart Inventory</h1>
-
-            <AddProductForm
-                newProduct={newProduct}
-                setNewProduct={setNewProduct}
-                onSubmit={handleAddProduct}
-            />
-
-            <InventorySummary
-                totalProducts={products.length}
-                lowStockCount={products.filter(p => p.stock <= p.lead_time_days).length}
-            />
-
-            {products.length > 0 && <StockChart data={products} />}
+            <div className="mb-6">
+                <h2 className="text-sm font-bold uppercase text-gray-500 mb-2">
+                    {editingProduct ? "📝 Modifying product" : "🚀 Add new product"}
+                </h2>
+                <AddProductForm
+                    newProduct={newProduct}
+                    setNewProduct={setNewProduct}
+                    onSubmit={handleSaveProduct}
+                    isEditing={!!editingProduct}
+                />
+                {editingProduct && (
+                    <button onClick={() => {setEditingProduct(null); setNewProduct({name:'', stock:0, price:0, lead_time_days:5})}} className="text-xs text-red-500 font-bold underline">
+                        Cancel Edition
+                    </button>
+                )}
+            </div>
 
             {selectedPrediction && (
                 <div className="bg-blue-50 border-l-4 border-blue-500 p-6 rounded-xl mb-8 shadow-sm">
@@ -141,8 +187,18 @@ const ProductList = () => {
                 </div>
             )}
 
+            <div className="mb-8">
+                <input
+                    type="text"
+                    placeholder="🔍 Buscar por nombre de producto..."
+                    className="w-full p-4 rounded-xl border-none shadow-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                />
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {products.map(product => (
+                {filteredProducts.map(product => (
                     <ProductCard
                         key={product.id}
                         product={product}
@@ -151,6 +207,7 @@ const ProductList = () => {
                         onSell={() => handleSellProduct(product.id, quantities[product.id])}
                         onAnalyze={() => handleGetPrediction(product.id)}
                         onDelete={()=> handleDeleteProduct(product.id)}
+                        onEdit={() => handleEditClick(product)}
                     />
                 ))}
             </div>

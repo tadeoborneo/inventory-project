@@ -23,5 +23,6 @@ class DBSale(Base):
     product_id = Column(Integer, ForeignKey("products.id"))
     quantity = Column(Integer)
     date = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    unit_price = Column(Float)
 
     product = relationship("DBProduct", back_populates="sales")

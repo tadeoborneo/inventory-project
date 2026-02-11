@@ -1,4 +1,4 @@
-const AddProductForm = ({ newProduct, setNewProduct, onSubmit }) => {
+const AddProductForm = ({ newProduct, setNewProduct, onSubmit, isEditing }) => {
     const isInvalid = !newProduct.name || newProduct.stock < 0 || newProduct.price <= 0 || newProduct.lead_time_days <= 0
     || isNaN(newProduct.stock) || isNaN(newProduct.price) || isNaN(newProduct.lead_time_days);
 
@@ -48,12 +48,16 @@ const AddProductForm = ({ newProduct, setNewProduct, onSubmit }) => {
                 />
             </div>
 
-            <button type="submit" disabled={isInvalid} className={`font-bold py-2 px-4 rounded-lg transition-colors ${
-                    isInvalid 
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
-                    : 'bg-blue-600 text-white hover:bg-blue-700'
-                }`}>
-                + Add Product
+            <button 
+                type="submit" 
+                disabled={isInvalid} 
+                className={`font-bold py-2 px-4 rounded-lg transition-colors ${
+                    isEditing 
+                    ? 'bg-amber-500 hover:bg-amber-600 text-white' 
+                    : (isInvalid ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700')
+                }`}
+            >
+                {isEditing ? 'Update Product' : '+ Add Product'}
             </button>
         </form>
     );

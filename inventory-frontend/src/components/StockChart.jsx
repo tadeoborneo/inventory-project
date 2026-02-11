@@ -1,12 +1,12 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
 
 const StockChart = ({ data }) => {
-    const chartData = data.map(p => ({
+    const formattedData = data.map(p => ({
         name: p.name,
         stock: p.stock,
         threshold: p.lead_time_days  
     }));
-    const criticalData = [...data].sort((a,b) => a.stock - b.stock).slice(0,10)
+    const criticalData = formattedData.filter(p => p.stock <= p.threshold);
 
 
     return (

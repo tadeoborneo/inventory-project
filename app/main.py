@@ -108,7 +108,8 @@ def create_sale(sale: schemas.SaleCreate, db: Session = Depends(get_db)):
     product.stock -= sale.quantity
     db_sale = models.DBSale(
         product_id=sale.product_id,
-        quantity=sale.quantity
+        quantity=sale.quantity,
+        unit_price=product.price
     )
     db.add(db_sale)
     db.commit()
@@ -130,3 +131,20 @@ def delete_product(product_id: int, db: Session = Depends(get_db)):
     logger.info(f"Product deleted: {db_product.name} (ID: {product_id})")
     
     return None
+
+@app.put("/products/{product_id}", response_model=schemas.Product)
+def update_product(product_id: int, product_update: schemas.ProductCreate, db: Session = Depends(get_db)):
+    """
+    Update an existing product's details.
+    """
+    db_product = db.query(models.DBProduct).filter(models.DBProduct.id == product_id).first()
+    if not db_product:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found.")
+    
+    for key, value in product_update.model_dump().items():
+        setattr(db_product, key, value)
+        
+    db.commit()
+    db.refresh(db_product)
+    logger.info(f"Product updated: {db_product.name} (ID: {product_id}) with new details.")
+    return db_product

@@ -7,6 +7,7 @@ class SaleItem(BaseModel):
     id: int
     product_id: int
     quantity: int
+    unit_price: float
     
     date: datetime
     @field_validator('date', mode='after')
