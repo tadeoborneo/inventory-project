@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, func
+from sqlalchemy import CheckConstraint, Column, Integer, String, Float, ForeignKey, DateTime, func
 from sqlalchemy.orm import relationship
 from .database import Base 
 from datetime import datetime, timezone
@@ -15,6 +15,12 @@ class DBProduct(Base):
     lead_time_days = Column(Integer, default=5)
 
     sales = relationship("DBSale", back_populates="product", cascade= "all, delete-orphan")
+    
+    __table_args__ = ( #Constraints to ensure data integrity
+        CheckConstraint('stock >= 0', name='check_stock_non_negative'),
+        CheckConstraint('price > 0', name='check_price_positive'),
+        CheckConstraint('lead_time_days >= 0', name='check_lead_time_non_negative')
+    )
 
 class DBSale(Base):
     __tablename__ = "sales"
@@ -26,3 +32,10 @@ class DBSale(Base):
     unit_price = Column(Float)
 
     product = relationship("DBProduct", back_populates="sales")
+    
+    __table_args__ = (
+        CheckConstraint('quantity > 0', name='check_quantity_positive'),
+        CheckConstraint('unit_price > 0', name='check_unit_price_positive')
+    )
+    
+    

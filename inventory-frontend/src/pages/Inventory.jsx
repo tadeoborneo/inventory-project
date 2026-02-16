@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
-import InventorySummary from '../components/InventorySummary';
 import AddProductForm from '../components/AddProductForm';
 import ProductCard from '../components/ProductCard';
-import StockChart from '../components/StockChart';
-const ProductList = () => {
+
+const Inventory = () => {
     const [products, setProducts] = useState([]);
     const [selectedPrediction, setSelectedPrediction] = useState(null);
     const [quantities, setQuantities] = useState({});
@@ -23,7 +22,7 @@ const ProductList = () => {
     useEffect(() => {
         axios.get('http://localhost:8000/products')
             .then(response => setProducts(response.data))
-            .catch(error => console.error("Error al traer productos:", error));
+            .catch(error => console.error("Error fetching products:", error));
     }, []);
 
     const handleEditClick = (product) => {
@@ -118,7 +117,8 @@ const ProductList = () => {
         try {
             const response = await axios.post('http://localhost:8000/sales', {
                 product_id: productId,
-                quantity: Number(quantity)
+                quantity: Number(quantity),
+                unit_price: products.find(p => p.id === productId).price
             });
 
             setProducts(prevProducts =>
@@ -141,7 +141,7 @@ const ProductList = () => {
             setSelectedPrediction(response.data);
         } catch (error) {
             console.error("Error fetching prediction:", error);
-            toast.success(error.response?.data?.detail || "Insufficient data for prediction.");
+            toast.error(error.response?.data?.detail || "Insufficient data for prediction.");
         }
     }
 
@@ -190,7 +190,7 @@ const ProductList = () => {
             <div className="mb-8">
                 <input
                     type="text"
-                    placeholder="🔍 Buscar por nombre de producto..."
+                    placeholder="Search products by name..."
                     className="w-full p-4 rounded-xl border-none shadow-sm focus:ring-2 focus:ring-blue-500 outline-none"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -215,4 +215,4 @@ const ProductList = () => {
     );
 };
 
-export default ProductList;
+export default Inventory;

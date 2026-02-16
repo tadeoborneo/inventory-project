@@ -22,6 +22,7 @@ class SaleItem(BaseModel):
 class SaleCreate(BaseModel):
     product_id: int
     quantity: int = Field(..., gt = 0, description = "Quantity sold must be greater than zero")
+    unit_price: float = Field(..., gt = 0, descritption= "Unit price must be greater than zero")
     
 class InventoryResponse(BaseModel):
     avg_daily_sales : float
@@ -32,7 +33,7 @@ class InventoryResponse(BaseModel):
 class Product(BaseModel):
     id : int
     name : str
-    stock : int
+    stock : int 
     price : float
     lead_time_days : int
 

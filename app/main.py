@@ -2,6 +2,7 @@ import sys
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
 from . import schemas
 from app.core import get_average_daily_sales, calculate_days_until_stockout, needs_restocking
 from .database import engine, Base, get_db
@@ -93,29 +94,34 @@ def create_sale(sale: schemas.SaleCreate, db: Session = Depends(get_db)):
     Record a new sale for a product.
     """
     # Verify that the product exists
-    product = db.query(models.DBProduct).filter(models.DBProduct.id == sale.product_id).first()
-    # If not, raise an error
-    if not product:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found.")
+    try:
+        product = db.query(models.DBProduct).filter(models.DBProduct.id == sale.product_id).with_for_update().first()  # Lock the product row for update
+        # If not, raise an error
+        if not product:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found.")
 
-    # Verify sufficient stock
-    if product.stock < sale.quantity:
-        logger.warning(f"Attempted sale failed: Product ID {sale.product_id} has insufficient stock. Requested: {sale.quantity}, Available: {product.stock}")
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                            detail=f"Insufficient stock for the sale. Available stock: {product.stock}, Requested: {sale.quantity}")
+        # Verify sufficient stock
+        if product.stock < sale.quantity:
+            logger.warning(f"Attempted sale failed: Product ID {sale.product_id} has insufficient stock. Requested: {sale.quantity}, Available: {product.stock}")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                                detail=f"Insufficient stock for the sale. Available stock: {product.stock}, Requested: {sale.quantity}")
 
-    #Deduct stock and record sale
-    product.stock -= sale.quantity
-    db_sale = models.DBSale(
-        product_id=sale.product_id,
-        quantity=sale.quantity,
-        unit_price=product.price
-    )
-    db.add(db_sale)
-    db.commit()
-    db.refresh(db_sale)
+        #Deduct stock and record sale
+        product.stock -= sale.quantity
+        db_sale = models.DBSale(
+            product_id=sale.product_id,
+            quantity=sale.quantity,
+            unit_price=product.price
+        )
+        db.add(db_sale)
+        db.commit()
+        db.refresh(db_sale)
 
-    return db_sale
+        return db_sale
+    except SQLAlchemyError as e:
+        db.rollback()
+        logger.error(f"Database error while recording sale: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An error occurred while recording the sale.")
 
 @app.delete("/products/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_product(product_id: int, db: Session = Depends(get_db)):
@@ -148,3 +154,11 @@ def update_product(product_id: int, product_update: schemas.ProductCreate, db: S
     db.refresh(db_product)
     logger.info(f"Product updated: {db_product.name} (ID: {product_id}) with new details.")
     return db_product
+
+@app.get("/sales", response_model=list[schemas.SaleItem], status_code=status.HTTP_200_OK)
+def get_sales(db: Session = Depends(get_db)):
+    """
+    Retrieve all sales records.
+    """
+    sales = db.query(models.DBSale).all()
+    return sales
