@@ -10,11 +10,13 @@ const Inventory = () => {
     const [quantities, setQuantities] = useState({});
     const [searchTerm, setSearchTerm] = useState('');
     const [editingProduct, setEditingProduct] = useState(null);
+    const [isLoading, setIsLoading] = useState(false);
     const [newProduct, setNewProduct] = useState({
         name: '',
         stock: 0,
         price: 0,
-        lead_time_days: 5
+        lead_time_days: 5,
+        cost: 0
     });
 
     const filteredProducts = products.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -31,7 +33,8 @@ const Inventory = () => {
             name: product.name,
             stock: product.stock, 
             price: product.price,
-            lead_time_days: product.lead_time_days
+            lead_time_days: product.lead_time_days,
+            cost: product.cost
         });
         window.scrollTo({ top: 0, behavior: 'smooth'})
     }
@@ -40,13 +43,17 @@ const Inventory = () => {
         e.preventDefault();
         const productData = {
             ...newProduct,
-            stock: Number(newProduct.stock),
-            price: Number(newProduct.price),
-            lead_time_days: Number(newProduct.lead_time_days)
+            stock: parseInt(newProduct.stock),
+            price: parseFloat(newProduct.price),
+            cost: parseFloat(newProduct.cost),
+            lead_time_days: parseInt(newProduct.lead_time_days)
         };
 
+        setIsLoading(true);
+        const isUpdating = !!editingProduct;
+
         try {
-            if (editingProduct) {
+            if (isUpdating) {
                 
                 const response = await axios.put(`http://localhost:8000/products/${editingProduct}`, productData);
                 setProducts(products.map(p => p.id === editingProduct ? response.data : p));
@@ -55,13 +62,22 @@ const Inventory = () => {
                 
                 const response = await axios.post('http://localhost:8000/products', productData);
                 setProducts([...products, response.data]);
-                toast.success("Product added!");
+                toast.success("Product added successfully!");
             }
            
-            setNewProduct({ name: '', stock: 0, price: 0, lead_time_days: 5 });
+            setNewProduct({ name: '', stock: 0, price: 0, lead_time_days: 5, cost: 0 });
             setEditingProduct(null);
         } catch (error) {
-            toast.error("Error updating product");
+            let msg = isUpdating ? "Error updating product" : "Error adding product";
+            if(error.response?.data?.detail) {
+                msg = typeof error.response.data.detail == "string"
+                    ? error.response.data.detail
+                    : "Validation error: Check your inputs";
+            }
+            toast.error(msg);
+            console.error("API Error:" , error);
+        }finally {
+            setIsLoading(false);
         }
     };
 
@@ -77,35 +93,6 @@ const Inventory = () => {
         } catch (error) {
             toast.error("Error deleting product: ");
         }
-    }
-
-    const handleAddProduct = async (e) => {
-        e.preventDefault();
-
-        const productData = {
-            ...newProduct,
-            stock: Number(newProduct.stock),
-            price: Number(newProduct.price),
-            lead_time_days: Number(newProduct.lead_time_days)
-        }
-
-        try {
-            const response = await axios.post('http://localhost:8000/products', productData);
-            setProducts([...products, response.data]);
-
-            setNewProduct({ name: '', stock: 0, price: 0, lead_time_days: 5 });
-            toast.success("Product added successfully!");
-        } catch (error) {
-            let msg = "Error connecting to the server.";
-            if (error.response?.status === 422) {
-                const detail = error.response.data.detail;
-                msg = Array.isArray(detail) ? `${detail[0].loc[1]} : ${detail[0].msg}` : detail;
-            } else if (error.response?.data?.detail) {
-                msg = error.response.data.detail;
-            }
-            toast.error(msg);
-        }
-
     }
 
     const handleSellProduct = async (productId, quantity) => {
@@ -157,6 +144,7 @@ const Inventory = () => {
                     setNewProduct={setNewProduct}
                     onSubmit={handleSaveProduct}
                     isEditing={!!editingProduct}
+                    isLoading={isLoading}
                 />
                 {editingProduct && (
                     <button onClick={() => {setEditingProduct(null); setNewProduct({name:'', stock:0, price:0, lead_time_days:5})}} className="text-xs text-red-500 font-bold underline">

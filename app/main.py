@@ -68,6 +68,10 @@ def get_products(db: Session = Depends(get_db)):
     Retrieve all products in the inventory.
     """
     products = db.query(models.DBProduct).all()
+    
+    if not products:
+        logger.info("Products query completed. No products found.")
+        return []
     return products
 
 @app.post("/products", response_model=schemas.Product, status_code=status.HTTP_201_CREATED)
@@ -111,7 +115,8 @@ def create_sale(sale: schemas.SaleCreate, db: Session = Depends(get_db)):
         db_sale = models.DBSale(
             product_id=sale.product_id,
             quantity=sale.quantity,
-            unit_price=product.price
+            unit_price=product.price,
+            unit_cost=product.cost
         )
         db.add(db_sale)
         db.commit()

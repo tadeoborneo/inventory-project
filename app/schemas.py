@@ -8,6 +8,7 @@ class SaleItem(BaseModel):
     product_id: int
     quantity: int
     unit_price: float
+    unit_cost: float
     
     date: datetime
     @field_validator('date', mode='after')
@@ -22,7 +23,6 @@ class SaleItem(BaseModel):
 class SaleCreate(BaseModel):
     product_id: int
     quantity: int = Field(..., gt = 0, description = "Quantity sold must be greater than zero")
-    unit_price: float = Field(..., gt = 0, descritption= "Unit price must be greater than zero")
     
 class InventoryResponse(BaseModel):
     avg_daily_sales : float
@@ -35,6 +35,7 @@ class Product(BaseModel):
     name : str
     stock : int 
     price : float
+    cost : float
     lead_time_days : int
 
     model_config = ConfigDict(from_attributes=True)
@@ -43,4 +44,5 @@ class ProductCreate(BaseModel):
     name : str
     stock : int = Field(..., ge=0, description="Initial stock must be non-negative")
     price : float = Field(..., gt=0, description="Price must be greater than zero")
+    cost : float = Field(..., gt=0, description="Cost must be greater than zero")
     lead_time_days : int = Field(..., gt=0, description="Lead time in days must be non-negative")

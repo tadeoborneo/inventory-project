@@ -13,6 +13,7 @@ class DBProduct(Base):
     stock = Column(Integer, default=0)
     price = Column(Float)
     lead_time_days = Column(Integer, default=5)
+    cost = Column(Float)
 
     sales = relationship("DBSale", back_populates="product", cascade= "all, delete-orphan")
     
@@ -30,6 +31,7 @@ class DBSale(Base):
     quantity = Column(Integer)
     date = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     unit_price = Column(Float)
+    unit_cost = Column(Float)
 
     product = relationship("DBProduct", back_populates="sales")
     
