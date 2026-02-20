@@ -1,6 +1,7 @@
 import sys
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import func, desc
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 from . import schemas
@@ -167,3 +168,27 @@ def get_sales(db: Session = Depends(get_db)):
     """
     sales = db.query(models.DBSale).all()
     return sales
+
+@app.get("/analytics/top-products", response_model=list[schemas.TopProduct])
+def get_top_products(db: Session = Depends(get_db)):
+    """
+    Retrieve the top 5 products by calculated profit.
+    """
+    profit_expression = func.sum(
+        models.DBSale.quantity * (models.DBSale.unit_price - models.DBSale.unit_cost)
+    )
+
+    top_products_query = (
+        db.query(
+            models.DBProduct.name,
+            profit_expression.label('total_profit')
+        )
+        .join(models.DBSale)
+
+        .group_by(models.DBProduct.id, models.DBProduct.name) 
+        .order_by(desc('total_profit'))
+        .limit(5)
+        .all()
+    )
+    
+    return [{"name": row.name, "profit": row.total_profit} for row in top_products_query]

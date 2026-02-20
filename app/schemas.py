@@ -46,3 +46,7 @@ class ProductCreate(BaseModel):
     price : float = Field(..., gt=0, description="Price must be greater than zero")
     cost : float = Field(..., gt=0, description="Cost must be greater than zero")
     lead_time_days : int = Field(..., gt=0, description="Lead time in days must be non-negative")
+
+class TopProduct(BaseModel):
+    name: str
+    profit: float
